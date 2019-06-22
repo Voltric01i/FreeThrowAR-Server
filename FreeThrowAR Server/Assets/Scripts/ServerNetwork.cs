@@ -7,7 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-public class Network : MonoBehaviour    
+public class ServerNetwork : MonoBehaviour    
 {
     private TcpListener listener;
     private List<TcpClient> clients = new List<TcpClient>();
@@ -15,15 +15,18 @@ public class Network : MonoBehaviour
 
     public void Listen(string host, int port)
     {
+        Debug.Log("IPAddress is " + host);
         var ip = IPAddress.Parse(host);
         listener = new TcpListener(ip, port);
         listener.Start();
         listener.BeginAcceptSocket(DoAcceptTcpClientCallback, listener);
+        Debug.Log("Wating for connection...");
     }
 
     // 接続処理
     private void DoAcceptTcpClientCallback(IAsyncResult ar)
     {
+        //Debug.Log("Wating for connection...");
         var listener = (TcpListener) ar.AsyncState;
         var client = listener.EndAcceptTcpClient(ar);
         clients.Add(client);
@@ -42,18 +45,10 @@ public class Network : MonoBehaviour
         // 接続が切れるまで受信を繰り返す
         while (client.Connected)
         {
-            // 接続が切れてたら
-            if (client.Client.Poll(1000, SelectMode.SelectRead) && (client.Client.Available == 0))
-            {
-                Debug.Log("Disconnect: " + client.Client.RemoteEndPoint);
-                client.Close();
-                clients.Remove(client);
-                break;
-            }
-
             while (!reader.EndOfStream)
             {
                 var str = reader.ReadLine();
+                OnMessage(str);
 
                 // 受け取ったものを他のクライアントにも送信する
                 foreach(var distination in clients)
@@ -64,15 +59,23 @@ public class Network : MonoBehaviour
                     }
                 }
             }
-            
-            
+
+            // 接続が切れてたら
+            if (client.Client.Poll(1000, SelectMode.SelectRead) && (client.Client.Available == 0))
+            {
+                Debug.Log("Disconnect: " + client.Client.RemoteEndPoint);
+                client.Close();
+                clients.Remove(client);
+                break;
+            }
+
         }
     }
 
 
     protected void OnMessage(string str)
     {
-
+        Debug.Log("MessageReceived: " + str);
     }
 
     // 指定した一つのclientにmsgを送る
