@@ -10,6 +10,11 @@ public class Server : ServerNetwork
 {
     public int port = 30000;
 
+    // ステート用
+    private bool stateGameMatching = false;
+    private bool stateGamePlaying = false;
+    private bool stateGameFinished = false;
+
     
     void Start()
     {
@@ -17,6 +22,8 @@ public class Server : ServerNetwork
         var ipAddress = GetIPAddress();
         // 指定したポートを開く
         Listen(ipAddress, port);
+        stateGameMatching = true;
+
 
 
     }
@@ -24,6 +31,44 @@ public class Server : ServerNetwork
     void Update()
     {
         
+        
+    }
+
+    protected override void OnMessage(List<TcpClient> tcpClientList, TcpClient client, string str)
+    {
+        
+        if (str == "")
+        {
+            listener.Stop();
+
+
+        }
+        else if(stateGamePlaying == true)
+        {
+            bcastMessage(tcpClientList, client, str);
+            
+        }
+        else if (stateGameFinished == true)
+        {
+
+        }
+        
+        
+
+        
+        
+    }
+
+    public void bcastMessage(List<TcpClient> clientList, TcpClient client, string str)
+    {
+        // 受け取ったものを他のクライアントにも送信する
+        foreach (var distination in clientList)
+        {
+            if (client != distination)
+            {
+                SendMessageToClient(str, distination);
+            }
+        }
     }
 
 

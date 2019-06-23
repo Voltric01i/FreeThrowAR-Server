@@ -9,8 +9,8 @@ using System.Text;
 
 public class ServerNetwork : MonoBehaviour    
 {
-    private TcpListener listener;
-    private List<TcpClient> clients = new List<TcpClient>();
+    public TcpListener listener;
+    public List<TcpClient> clientList = new List<TcpClient>();
     private bool endAcceptConnection = false;
 
     public void Listen(string host, int port)
@@ -29,7 +29,7 @@ public class ServerNetwork : MonoBehaviour
         //Debug.Log("Wating for connection...");
         var listener = (TcpListener) ar.AsyncState;
         var client = listener.EndAcceptTcpClient(ar);
-        clients.Add(client);
+        clientList.Add(client);
         Debug.Log("Connect:" + client.Client.RemoteEndPoint);
 
         // 次の人を待ち受ける
@@ -48,16 +48,10 @@ public class ServerNetwork : MonoBehaviour
             while (!reader.EndOfStream)
             {
                 var str = reader.ReadLine();
-                OnMessage(str);
+                Debug.Log("MessageReceived: " + str);
+                OnMessage(clientList, client, str);
 
-                // 受け取ったものを他のクライアントにも送信する
-                foreach(var distination in clients)
-                {
-                    if(client != distination)
-                    {
-                        SendMessageToClient(str, distination);
-                    }
-                }
+                
             }
 
             // 接続が切れてたら
@@ -65,7 +59,7 @@ public class ServerNetwork : MonoBehaviour
             {
                 Debug.Log("Disconnect: " + client.Client.RemoteEndPoint);
                 client.Close();
-                clients.Remove(client);
+                clientList.Remove(client);
                 break;
             }
 
@@ -73,15 +67,15 @@ public class ServerNetwork : MonoBehaviour
     }
 
 
-    protected void OnMessage(string str)
+    protected virtual void OnMessage(List<TcpClient> tcpClientList, TcpClient client, string str)
     {
-        Debug.Log("MessageReceived: " + str);
+        
     }
 
     // 指定した一つのclientにmsgを送る
     protected void SendMessageToClient(string msg, TcpClient client)
     {
-        if(clients.Count == 0)
+        if(clientList.Count == 0)
         {
             return;
         }
@@ -100,9 +94,9 @@ public class ServerNetwork : MonoBehaviour
             return;
         }
 
-        if(clients.Count != 0)
+        if(clientList.Count != 0)
         {
-            foreach(var client in clients)
+            foreach(var client in clientList)
             {
                 client.Close();
             }
