@@ -11,7 +11,7 @@ public class ServerNetwork : MonoBehaviour
 {
     public TcpListener listener;
     public List<TcpClient> clientList = new List<TcpClient>();
-    private bool endAcceptConnection = false;
+    private bool endAcception = false;
 
     public void Listen(string host, int port)
     {
@@ -33,7 +33,7 @@ public class ServerNetwork : MonoBehaviour
         Debug.Log("Connect:" + client.Client.RemoteEndPoint);
 
         // 次の人を待ち受ける
-        if (endAcceptConnection == false)
+        if (endAcception == false)
         {
             listener.BeginAcceptSocket(DoAcceptTcpClientCallback, listener);
         }
@@ -49,7 +49,7 @@ public class ServerNetwork : MonoBehaviour
             {
                 var str = reader.ReadLine();
                 Debug.Log("MessageReceived: " + str);
-                OnMessage(clientList, client, str);
+                OnMessage(client, str);
 
                 
             }
@@ -67,7 +67,7 @@ public class ServerNetwork : MonoBehaviour
     }
 
 
-    protected virtual void OnMessage(List<TcpClient> tcpClientList, TcpClient client, string str)
+    protected virtual void OnMessage(TcpClient client, string str)
     {
         
     }
@@ -85,6 +85,26 @@ public class ServerNetwork : MonoBehaviour
 
 
 
+    }
+
+    public void setAcceptionEnd()
+    {
+        endAcception = true;
+    }
+
+    protected void ResetConnectionData()
+    {
+        if (clientList.Count != 0)
+        {
+            foreach (var client in clientList)
+            {
+                client.Close();
+            }
+        }
+
+        clientList.Clear();
+        listener.Stop();
+        endAcception = false;
     }
 
     protected void OnApplicationQuit()

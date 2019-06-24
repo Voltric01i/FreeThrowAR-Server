@@ -5,25 +5,40 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using MiniJSON;
+
+
+enum GameState
+{
+    Matching,
+    Playing,
+    Finish,
+    Reset
+}
+
+public struct ClientPoint
+{
+    TcpClient client;
+    int point;
+
+    public ClientPoint(TcpClient c, int i)
+    {
+        client = c;
+        point = i;
+    }
+}
 
 public class Server : ServerNetwork
 {
     public int port = 30000;
 
-    // ステート用
-    private bool stateGameMatching = false;
-    private bool stateGamePlaying = false;
-    private bool stateGameFinished = false;
+    private GameState currentState;
+    private List<ClientPoint> pointList = new List<ClientPoint>(); 
 
     
     void Start()
     {
-        // 接続中のIPアドレスを取得
-        var ipAddress = GetIPAddress();
-        // 指定したポートを開く
-        Listen(ipAddress, port);
-        stateGameMatching = true;
-
+        GameMatching();
 
 
     }
@@ -34,32 +49,83 @@ public class Server : ServerNetwork
         
     }
 
-    protected override void OnMessage(List<TcpClient> tcpClientList, TcpClient client, string str)
+    // クライアントからパケットを受け取ったら実行
+    protected override void OnMessage(TcpClient client, string str)
     {
+        Dictionary<string, object> msgJson = stringToDict(str);
         
-        if (str == "")
+        if ((string)msgJson["name"] == "matching")
         {
-            listener.Stop();
-
+            GameMatching();
 
         }
-        else if(stateGamePlaying == true)
+        else if ((string) msgJson["name"] == "start" && currentState == GameState.Matching)
         {
-            bcastMessage(tcpClientList, client, str);
-            
+            GameStart();
+
         }
-        else if (stateGameFinished == true)
+        else if ((string)msgJson["name"] == "throw" && currentState == GameState.Playing)
+        {
+            bcastMessage(client, str);
+
+        }
+        else if ((string)msgJson["name"] == "finish" && currentState == GameState.Playing)
+        {
+            ClientPoint cp = new ClientPoint(client, (int)msgJson["value"]);
+            GameFinish(cp);
+        }else if ((string)msgJson["name"] == "reset")
         {
 
         }
-        
-        
-
         
         
     }
 
-    public void bcastMessage(List<TcpClient> clientList, TcpClient client, string str)
+
+
+    private void GameMatching()
+    {
+        currentState = GameState.Matching;
+        
+        // ipアドレス取得
+        var ipAddress = GetIPAddress();
+        // ポートを開いて待ち受け開始
+        Listen(ipAddress, port);
+        
+    }
+
+    private void GameStart()
+    {
+        currentState = GameState.Playing;
+
+        setAcceptionEnd();
+        
+    }
+
+    // ランキング出す予定
+    private void GameFinish(ClientPoint cp)
+    {
+        currentState = GameState.Finish;
+        
+        // clientとポイントをリストにイン
+        pointList.Add(cp);
+        // ポイントで降順ソート
+
+        // ランキングをclientに送信
+        
+    }
+
+    private void GameReset()
+    {
+        currentState = GameState.Reset;
+
+        ResetConnectionData();
+        
+    }
+
+    
+
+    public void bcastMessage(TcpClient client, string str)
     {
         // 受け取ったものを他のクライアントにも送信する
         foreach (var distination in clientList)
@@ -71,8 +137,14 @@ public class Server : ServerNetwork
         }
     }
 
+    
+    public Dictionary<string, object> stringToDict(string str)
+    {
+        return Json.Deserialize(str) as Dictionary<string, object>;
+    }
 
 
+    // 一番上のIPv4アドレスを返す
     private string GetIPAddress()
     {
         string hostname = Dns.GetHostName();
