@@ -30,16 +30,16 @@ public struct ClientPoint
 
 public class StatusText
 {
-    string ip;
-    int port;
-    string state;
-    int players;
+    public string ip;
+    public int port;
+    public string state;
+    public int players;
 
     public StatusText()
     {
         ip = "null";
         port = 0;
-        state = "Matching";
+        state = "null";
         players = 0;
     }
 
@@ -56,7 +56,7 @@ public class Server : ServerNetwork
 
     private GameState currentState;
     private List<ClientPoint> pointList = new List<ClientPoint>();
-    private StatusText statusText = new StatusText();
+    private StatusText status = new StatusText();
     
     void Start()
     {
@@ -66,7 +66,8 @@ public class Server : ServerNetwork
 
     void Update()
     {
-        textStatus.text = statusText.getText();
+        status.players = clientList.Count;
+        textStatus.text = status.getText();
         
     }
 
@@ -87,11 +88,14 @@ public class Server : ServerNetwork
         }
         else if ((string)msgJson["name"] == "finish" && currentState == GameState.Playing)
         {
-            ClientPoint cp = new ClientPoint(client, (int)msgJson["value"]);
-            GameFinish(cp);
+            // pointをわたしてランキング計算
+            // int.Parseしないとフリーズする!
+            int point = int.Parse(msgJson["value"].ToString());
+            GameFinish(client, point);
+
         }else if ((string)msgJson["name"] == "reset")
         {
-
+            GameReset();
         }
         
         
@@ -102,29 +106,34 @@ public class Server : ServerNetwork
     private void GameMatching()
     {
         currentState = GameState.Matching;
+        status.state = "Matching";
         
         // ipアドレス取得
         var ipAddress = GetIPAddress();
         // ポートを開いて待ち受け開始
         Listen(ipAddress, port);
 
+        status.ip = ipAddress;
+        status.port = port;
     }
 
     private void GameStart()
     {
         currentState = GameState.Playing;
+        status.state = "Playing";
 
         setAcceptionEnd();
         
     }
 
     // ランキング出す予定
-    private void GameFinish(ClientPoint cp)
+    private void GameFinish(TcpClient client, int point)
     {
         currentState = GameState.Finish;
+        status.state = "Finish";
         
         // clientとポイントをリストにイン
-        pointList.Add(cp);
+
         // ポイントで降順ソート
 
         // ランキングをclientに送信
@@ -134,6 +143,7 @@ public class Server : ServerNetwork
     private void GameReset()
     {
         currentState = GameState.Matching;
+        status.state = "Matching";
 
         ResetConnectionData();
         GameMatching();
