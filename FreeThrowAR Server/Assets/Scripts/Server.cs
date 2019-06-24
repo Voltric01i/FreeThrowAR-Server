@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -12,8 +13,7 @@ enum GameState
 {
     Matching,
     Playing,
-    Finish,
-    Reset
+    Finish
 }
 
 public struct ClientPoint
@@ -28,24 +28,45 @@ public struct ClientPoint
     }
 }
 
+public class StatusText
+{
+    string ip;
+    int port;
+    string state;
+    int players;
+
+    public StatusText()
+    {
+        ip = "null";
+        port = 0;
+        state = "Matching";
+        players = 0;
+    }
+
+    public string getText()
+    {
+        return "IPAddress is " + ip + ":" + port + "\n\nState: " + state + "\nPlayerCount: " + players;
+    }
+}
+
 public class Server : ServerNetwork
 {
     public int port = 30000;
+    public Text textStatus;
 
     private GameState currentState;
-    private List<ClientPoint> pointList = new List<ClientPoint>(); 
-
+    private List<ClientPoint> pointList = new List<ClientPoint>();
+    private StatusText statusText = new StatusText();
     
     void Start()
     {
         GameMatching();
 
-
     }
 
     void Update()
     {
-        
+        textStatus.text = statusText.getText();
         
     }
 
@@ -54,17 +75,12 @@ public class Server : ServerNetwork
     {
         Dictionary<string, object> msgJson = stringToDict(str);
         
-        if ((string)msgJson["name"] == "matching")
-        {
-            GameMatching();
-
-        }
-        else if ((string) msgJson["name"] == "start" && currentState == GameState.Matching)
+        if ((string) msgJson["name"] == "start" && currentState == GameState.Matching)
         {
             GameStart();
 
         }
-        else if ((string)msgJson["name"] == "throw" && currentState == GameState.Playing)
+        else if ((string)msgJson["name"] == "ball" && currentState == GameState.Playing)
         {
             bcastMessage(client, str);
 
@@ -91,7 +107,7 @@ public class Server : ServerNetwork
         var ipAddress = GetIPAddress();
         // ポートを開いて待ち受け開始
         Listen(ipAddress, port);
-        
+
     }
 
     private void GameStart()
@@ -117,9 +133,10 @@ public class Server : ServerNetwork
 
     private void GameReset()
     {
-        currentState = GameState.Reset;
+        currentState = GameState.Matching;
 
         ResetConnectionData();
+        GameMatching();
         
     }
 
@@ -136,7 +153,7 @@ public class Server : ServerNetwork
             }
         }
     }
-
+    
     
     public Dictionary<string, object> stringToDict(string str)
     {
