@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,15 +17,14 @@ enum GameState
     Finish
 }
 
-public struct ClientPoint
+public class GamePoint
 {
-    TcpClient client;
-    int point;
-
-    public ClientPoint(TcpClient c, int i)
+    public TcpClient client { get; set; }
+    public int point { get; set; }
+    public GamePoint(TcpClient c, int p)
     {
         client = c;
-        point = i;
+        point = p;
     }
 }
 
@@ -54,8 +54,9 @@ public class Server : ServerNetwork
     public int port = 30000;
     public Text textStatus;
 
+    private float rankingSendTime = -1000;
     private GameState currentState;
-    private List<ClientPoint> pointList = new List<ClientPoint>();
+    private List<GamePoint> pointList = new List<GamePoint>();
     private StatusText status = new StatusText();
     
     void Start()
@@ -68,6 +69,22 @@ public class Server : ServerNetwork
     {
         status.players = clientList.Count;
         textStatus.text = status.getText();
+
+        if(currentState == GameState.Finish)
+        {
+            if(rankingSendTime > 0)
+            {
+                rankingSendTime -= Time.deltaTime;
+                if(pointList.Count == clientList.Count)
+                {
+                    sendRanking();
+                }
+            }else if(-100 < rankingSendTime && rankingSendTime < 0)
+            {
+                sendRanking();
+                rankingSendTime = -1000;
+            }
+        }
         
     }
 
@@ -131,13 +148,13 @@ public class Server : ServerNetwork
     {
         currentState = GameState.Finish;
         status.state = "Finish";
-        
+
         // clientとポイントをリストにイン
-
+        pointList.Add(new GamePoint(client, point));
         // ポイントで降順ソート
+        pointList.Sort((a, b) => b.point - a.point);
 
-        // ランキングをclientに送信
-        
+        rankingSendTime = 20;
     }
 
     private void GameReset()
@@ -151,6 +168,20 @@ public class Server : ServerNetwork
     }
 
     
+    private void sendRanking()
+    {
+        string json = "{";
+        int i = 0;
+        foreach(var gp in pointList){
+            json += i + "{point:" + gp.point + "},";  // {0{point:4},
+            i++;
+        }                                             // {0{point:4},1{point:2},
+        json = json.TrimEnd(',');                            // {0{point:4},1{point:2}
+        json += "}";                                  // {0{point:4},1{point:2}}
+
+        bcastMessage(new TcpClient(), json);
+        pointList.Clear();
+    }
 
     public void bcastMessage(TcpClient client, string str)
     {
