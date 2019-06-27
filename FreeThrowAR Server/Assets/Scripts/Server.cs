@@ -163,6 +163,11 @@ public class Server : ServerNetwork
             }
         }
     }
+
+    public void ServerReset()
+    {
+        GameReset();
+    }
     
     
     public Dictionary<string, object> stringToDict(string str)
